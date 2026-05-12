@@ -1,6 +1,7 @@
 # sales-revenue-dashboard
 # 📊 SalesPulse — Sales & Revenue Analysis Dashboard
 
+**Live Demo:** https://bonnie20923.github.io/sales-revenue-dashboard/
 A fully client-side, zero-dependency sales analytics dashboard. No server required — open `index.html` in any browser and start analyzing.
 
 ---
