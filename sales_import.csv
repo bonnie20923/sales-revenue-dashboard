@@ -1,0 +1,35 @@
+product,region,amount,status,category,year,month,customer
+ProMax Laptop,North,14200,completed,electronics,2023,2,Ravi Kumar
+AirBuds Pro,South,7100,completed,electronics,2023,3,Priya Singh
+SmartWatch X,East,8900,completed,electronics,2023,4,Arjun Mehta
+Foam Runner,North,4200,completed,apparel,2023,5,Sneha Reddy
+EcoLamp,South,2800,pending,home,2023,6,Karthik Nair
+SportPack Pro,East,4600,completed,sports,2023,7,Divya Patel
+Glow Serum,West,2100,completed,beauty,2023,8,Ananya Iyer
+UltraTab 12,West,6300,refunded,electronics,2023,9,Rohit Sharma
+SuperDesk Pro,North,9800,completed,furniture,2023,10,Meena Rao
+AirBuds Pro,East,7400,completed,electronics,2023,11,Vijay Das
+ProMax Laptop,North,16800,completed,electronics,2024,1,Ravi Kumar
+AirBuds Pro,South,8500,completed,electronics,2024,2,Priya Singh
+SmartWatch X,East,10400,completed,electronics,2024,3,Arjun Mehta
+UltraTab 12,West,7200,pending,electronics,2024,4,Lakshmi Verma
+Foam Runner,North,5100,completed,apparel,2024,4,Sneha Reddy
+EcoLamp,South,3000,completed,home,2024,5,Karthik Nair
+SportPack Pro,East,5700,completed,sports,2024,6,Divya Patel
+Glow Serum,West,2600,refunded,beauty,2024,7,Ananya Iyer
+SuperDesk Pro,South,12400,completed,furniture,2024,7,Suresh Pillai
+ProMax Laptop,East,15900,completed,electronics,2024,8,Nisha Gupta
+SmartWatch X,West,9600,pending,electronics,2024,9,Rahul Joshi
+Foam Runner,South,4400,completed,apparel,2024,11,Pooja Bhat
+ProMax Laptop,North,18400,completed,electronics,2025,1,Ravi Kumar
+AirBuds Pro,South,9200,completed,electronics,2025,2,Priya Singh
+SmartWatch X,East,11500,completed,electronics,2025,2,Arjun Mehta
+UltraTab 12,West,7800,pending,electronics,2025,3,Lakshmi Verma
+Foam Runner,North,5400,completed,apparel,2025,4,Sneha Reddy
+EcoLamp,South,3200,pending,home,2025,5,Karthik Nair
+SportPack Pro,East,6100,completed,sports,2025,6,Divya Patel
+Glow Serum,West,2900,completed,beauty,2025,7,Ananya Iyer
+SuperDesk Pro,North,14200,completed,furniture,2025,7,Meena Rao
+AirBuds Pro,North,8700,refunded,electronics,2025,8,Amit Chandra
+ProMax Laptop,East,17100,completed,electronics,2025,9,Nisha Gupta
+SuperDesk Pro,South,13600,completed,furniture,2025,10,Suresh Pillai
