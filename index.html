@@ -1,0 +1,1608 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Sales & Revenue Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0f1117;
+    --bg2: #161b27;
+    --bg3: #1e2535;
+    --border: rgba(255,255,255,0.07);
+    --border2: rgba(255,255,255,0.13);
+    --text: #f0f2f8;
+    --text2: #8b93a7;
+    --text3: #555e72;
+    --accent: #4f8ef7;
+    --accent2: #7c5cfc;
+    --green: #22c984;
+    --red: #f55b5b;
+    --amber: #f5a623;
+    --teal: #2dd4bf;
+    --font: 'DM Sans', sans-serif;
+    --mono: 'DM Mono', monospace;
+    --radius: 12px;
+    --radius-sm: 8px;
+  }
+
+  body {
+    font-family: var(--font);
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    font-size: 14px;
+  }
+
+  /* ── Sidebar ── */
+  .layout { display: flex; min-height: 100vh; }
+
+  .sidebar {
+    width: 220px;
+    flex-shrink: 0;
+    background: var(--bg2);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    padding: 0 0 1.5rem;
+    position: fixed;
+    top: 0; left: 0; bottom: 0;
+    z-index: 100;
+  }
+
+  .sidebar-logo {
+    padding: 1.25rem 1.25rem 1rem;
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text);
+    letter-spacing: -0.02em;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .logo-icon {
+    width: 28px; height: 28px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius: 7px;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  .logo-icon svg { width: 14px; height: 14px; }
+
+  .nav-section { padding: 1rem 0.75rem 0.5rem; font-size: 11px; color: var(--text3); font-weight: 500; text-transform: uppercase; letter-spacing: 0.08em; }
+
+  .nav-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 1rem;
+    margin: 1px 8px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    color: var(--text2);
+    font-size: 13.5px;
+    transition: all 0.15s;
+    user-select: none;
+  }
+  .nav-item:hover { background: var(--bg3); color: var(--text); }
+  .nav-item.active { background: rgba(79,142,247,0.12); color: var(--accent); }
+  .nav-item svg { width: 16px; height: 16px; flex-shrink: 0; }
+
+  .sidebar-bottom { margin-top: auto; padding: 1rem; border-top: 1px solid var(--border); }
+
+  /* ── Main ── */
+  .main { margin-left: 220px; flex: 1; display: flex; flex-direction: column; }
+
+  /* ── Top bar ── */
+  .topbar {
+    position: sticky; top: 0; z-index: 50;
+    background: rgba(15,17,23,0.85);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--border);
+    padding: 0.875rem 1.75rem;
+    display: flex; align-items: center; gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  .topbar-title { font-size: 15px; font-weight: 600; flex: 1; }
+
+  .topbar-filters { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+  select, button.btn {
+    font-family: var(--font);
+    font-size: 13px;
+    padding: 6px 12px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border2);
+    background: var(--bg3);
+    color: var(--text);
+    cursor: pointer;
+    outline: none;
+    transition: border-color 0.15s, background 0.15s;
+  }
+  select:hover, button.btn:hover { border-color: var(--accent); }
+  select option { background: var(--bg3); }
+
+  button.btn-accent {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+    font-weight: 500;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  button.btn-accent:hover { background: #3a7de8; border-color: #3a7de8; }
+
+  .import-label {
+    font-family: var(--font);
+    font-size: 13px;
+    padding: 6px 12px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border2);
+    background: var(--bg3);
+    color: var(--text2);
+    cursor: pointer;
+    display: inline-flex; align-items: center; gap: 6px;
+    transition: border-color 0.15s;
+  }
+  .import-label:hover { border-color: var(--accent); color: var(--text); }
+  #csvInput { display: none; }
+
+  /* ── Content ── */
+  .content { padding: 1.5rem 1.75rem; flex: 1; }
+
+  /* ── KPI Cards ── */
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    gap: 14px;
+    margin-bottom: 1.5rem;
+  }
+
+  .kpi-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.25rem;
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.2s;
+  }
+  .kpi-card:hover { border-color: var(--border2); }
+  .kpi-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: var(--kpi-color, var(--accent));
+    opacity: 0.7;
+  }
+
+  .kpi-icon {
+    width: 32px; height: 32px;
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    margin-bottom: 12px;
+    background: var(--kpi-bg, rgba(79,142,247,0.12));
+  }
+  .kpi-icon svg { width: 16px; height: 16px; color: var(--kpi-color, var(--accent)); }
+
+  .kpi-label { font-size: 12px; color: var(--text2); margin-bottom: 6px; }
+  .kpi-value { font-size: 24px; font-weight: 600; letter-spacing: -0.03em; line-height: 1; margin-bottom: 8px; }
+  .kpi-delta { font-size: 12px; font-family: var(--mono); }
+  .kpi-delta.up { color: var(--green); }
+  .kpi-delta.down { color: var(--red); }
+
+  /* ── Charts Row ── */
+  .charts-row { display: grid; grid-template-columns: 1.6fr 1fr; gap: 14px; margin-bottom: 1.5rem; }
+
+  .card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.25rem;
+  }
+
+  .card-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 1rem;
+  }
+
+  .card-title { font-size: 13px; font-weight: 600; color: var(--text); }
+  .card-subtitle { font-size: 12px; color: var(--text3); margin-top: 2px; }
+
+  .legend {
+    display: flex; gap: 14px; align-items: center;
+    font-size: 12px; color: var(--text2);
+  }
+  .leg { display: flex; align-items: center; gap: 5px; }
+  .leg-dot { width: 8px; height: 8px; border-radius: 2px; }
+
+  /* ── Bottom row ── */
+  .bottom-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 1.5rem; }
+
+  /* Products bar chart */
+  .product-row { margin-bottom: 14px; }
+  .product-meta { display: flex; justify-content: space-between; margin-bottom: 5px; }
+  .product-name { font-size: 13px; color: var(--text); }
+  .product-val { font-size: 12px; font-family: var(--mono); color: var(--text2); }
+  .bar-bg { height: 6px; background: var(--bg3); border-radius: 3px; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 3px; transition: width 0.6s cubic-bezier(.22,1,.36,1); }
+
+  /* Table */
+  table { width: 100%; border-collapse: collapse; }
+  thead th {
+    font-size: 11px; font-weight: 500; text-transform: uppercase;
+    letter-spacing: 0.06em; color: var(--text3);
+    padding: 0 8px 10px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+  }
+  tbody td {
+    padding: 10px 8px;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+    color: var(--text);
+  }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover { background: rgba(255,255,255,0.02); }
+
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 99px;
+    font-size: 11px;
+    font-weight: 500;
+    font-family: var(--mono);
+  }
+  .badge-completed { background: rgba(34,201,132,0.12); color: var(--green); }
+  .badge-pending   { background: rgba(245,166,35,0.12); color: var(--amber); }
+  .badge-refunded  { background: rgba(245,91,91,0.12);  color: var(--red); }
+
+  /* ── Toast ── */
+  .toast {
+    position: fixed; bottom: 1.5rem; right: 1.5rem;
+    background: var(--bg3);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius-sm);
+    padding: 10px 16px;
+    font-size: 13px;
+    color: var(--text);
+    z-index: 9999;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+    transform: translateY(10px);
+    opacity: 0;
+    transition: all 0.3s;
+    max-width: 320px;
+  }
+  .toast.show { opacity: 1; transform: translateY(0); }
+
+  /* ── Section Pages ── */
+  .section-page { display: none; padding: 1.5rem 1.75rem; flex: 1; }
+  .section-page.active { display: block; }
+  .section-heading { font-size: 20px; font-weight: 600; margin-bottom: 4px; }
+  .section-desc { color: var(--text2); font-size: 13.5px; margin-bottom: 1.75rem; }
+  .section-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px,1fr)); gap: 14px; margin-bottom: 1.5rem; }
+  .s-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.25rem; }
+  .s-card-label { font-size: 12px; color: var(--text2); margin-bottom: 8px; }
+  .s-card-val { font-size: 22px; font-weight: 600; letter-spacing: -0.02em; }
+  .s-card-sub { font-size: 12px; color: var(--text3); margin-top: 5px; }
+  .s-table-wrap { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.25rem; }
+  .s-table-title { font-size: 13px; font-weight: 600; margin-bottom: 1rem; }
+
+  /* ── Scrollbar ── */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+
+  /* ── Responsive ── */
+  @media (max-width: 900px) {
+    .sidebar { display: none; }
+    .main { margin-left: 0; }
+    .charts-row, .bottom-row { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="layout">
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-icon">
+        <svg fill="none" viewBox="0 0 14 14" stroke="#fff" stroke-width="1.5">
+          <rect x="1" y="5" width="3" height="8" rx="1"/>
+          <rect x="5.5" y="3" width="3" height="10" rx="1"/>
+          <rect x="10" y="1" width="3" height="12" rx="1"/>
+        </svg>
+      </div>
+      SalesPulse
+    </div>
+
+    <div class="nav-section">Overview</div>
+    <div class="nav-item active" onclick="showSection('dashboard',this)">
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+      Dashboard
+    </div>
+    <div class="nav-item" onclick="showSection('revenue',this)">
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+      Revenue
+    </div>
+    <div class="nav-item" onclick="showSection('orders',this)">
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><polyline points="12 6 12 12 16 14"/></svg>
+      Orders
+    </div>
+
+    <div class="nav-section">Analytics</div>
+    <div class="nav-item" onclick="showSection('products',this)">
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      Products
+    </div>
+    <div class="nav-item" onclick="showSection('customers',this)">
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      Customers
+    </div>
+    <div class="nav-item" onclick="showSection('reports',this)">
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><rect x="2" y="3" width="20" height="14" rx="2"/><polyline points="8 21 12 17 16 21"/></svg>
+      Reports
+    </div>
+
+    <div class="sidebar-bottom">
+      <div class="nav-item" onclick="showSection('dashboard',this)">
+        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M12 2v2m0 16v2M4.22 4.22l1.42 1.42m12.72 12.72 1.42 1.42M2 12h2m16 0h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+        Settings
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <div class="main">
+
+    <!-- Top bar -->
+    <div class="topbar">
+      <span class="topbar-title">Dashboard Overview</span>
+      <div class="topbar-filters">
+        <select id="regionFilter" onchange="applyFilters()">
+          <option value="all">All Regions</option>
+          <option value="north">North</option>
+          <option value="south">South</option>
+          <option value="east">East</option>
+          <option value="west">West</option>
+        </select>
+        <select id="yearFilter" onchange="applyFilters()">
+          <option value="2024">FY 2024</option>
+          <option value="2023">FY 2023</option>
+          <!-- year options rebuilt dynamically after import to include all years found in file -->
+        </select>
+        <select id="catFilter" onchange="applyFilters()">
+          <option value="all">All Categories</option>
+          <option value="electronics">Electronics</option>
+          <option value="apparel">Apparel</option>
+          <option value="home">Home</option>
+          <option value="sports">Sports</option>
+          <option value="beauty">Beauty</option>
+        </select>
+        <label class="import-label" for="csvInput">
+          <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          Import CSV / Excel
+        </label>
+        <input type="file" id="csvInput" accept=".csv,.xlsx,.xls" onchange="handleFile(this)"/>
+        <button class="btn btn-accent" onclick="exportCSV()">
+          <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Export
+        </button>
+      </div>
+    </div>
+
+    <!-- Content -->
+    <div class="content">
+
+      <!-- KPI Cards -->
+      <div class="kpi-grid" id="kpiGrid"></div>
+
+      <!-- Charts Row -->
+      <div class="charts-row">
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Monthly Revenue Trend</div>
+              <div class="card-subtitle" id="trendSubtitle">FY 2024 vs FY 2023</div>
+            </div>
+            <div class="legend">
+              <span class="leg"><span class="leg-dot" style="background:#4f8ef7"></span><span id="trendLegCur">2024</span></span>
+              <span class="leg"><span class="leg-dot" style="background:#555e72; opacity:0.6;"></span><span id="trendLegPrev">2023</span></span>
+            </div>
+          </div>
+          <div style="position:relative;height:240px;">
+            <canvas id="trendChart" role="img" aria-label="Monthly revenue trend comparison 2024 vs 2023">Monthly revenue trend data.</canvas>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Revenue by Category</div>
+              <div class="card-subtitle">% share</div>
+            </div>
+          </div>
+          <div style="position:relative;height:170px;">
+            <canvas id="catChart" role="img" aria-label="Revenue by product category donut chart">Category revenue breakdown.</canvas>
+          </div>
+          <div id="catLegend" style="display:flex;flex-wrap:wrap;gap:8px 16px;margin-top:12px;font-size:12px;color:var(--text2);"></div>
+        </div>
+      </div>
+
+      <!-- Bottom Row -->
+      <div class="bottom-row">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Top Products by Revenue</div>
+          </div>
+          <div id="productBars"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Recent Transactions</div>
+            <span style="font-size:12px;color:var(--text3);" id="txCount"></span>
+          </div>
+          <div style="max-height:320px;overflow-y:auto;">
+          <table>
+            <thead>
+              <tr>
+                <th>Product</th>
+                <th>Region</th>
+                <th>Amount</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="txTable"></tbody>
+          </table>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /content -->
+
+    <!-- ── Revenue Section ── -->
+    <div id="section-revenue" class="section-page">
+      <div class="section-heading">Revenue</div>
+      <div class="section-desc" id="rev-desc">Revenue breakdown across all regions for FY 2024.</div>
+      <div class="section-cards">
+        <div class="s-card">
+          <div class="s-card-label">Total Revenue</div>
+          <div class="s-card-val" id="rev-total">$744.9K</div>
+          <div class="s-card-sub" id="rev-total-sub">All regions combined</div>
+        </div>
+        <div class="s-card">
+          <div class="s-card-label">Best Region</div>
+          <div class="s-card-val" id="rev-best-region">North</div>
+          <div class="s-card-sub" id="rev-best-pct">34.8% of total revenue</div>
+        </div>
+        <div class="s-card">
+          <div class="s-card-label">YoY Growth</div>
+          <div class="s-card-val" id="rev-growth" style="color:var(--green)">+14.2%</div>
+          <div class="s-card-sub" id="rev-growth-sub">vs FY 2023</div>
+        </div>
+        <div class="s-card">
+          <div class="s-card-label">Monthly Avg</div>
+          <div class="s-card-val" id="rev-avg">$62.0K</div>
+          <div class="s-card-sub" id="rev-avg-sub">Per month FY 2024</div>
+        </div>
+      </div>
+      <div class="s-table-wrap">
+        <div class="s-table-title">Revenue by Region</div>
+        <table>
+          <thead><tr><th>Region</th><th>Revenue</th><th>Share</th><th>Growth</th></tr></thead>
+          <tbody id="rev-region-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── Orders Section ── -->
+    <div id="section-orders" class="section-page">
+      <div class="section-heading">Orders</div>
+      <div class="section-desc" id="ord-desc">Order volume, status breakdown, and recent transactions.</div>
+      <div class="section-cards">
+        <div class="s-card">
+          <div class="s-card-label">Total Orders</div>
+          <div class="s-card-val" id="ord-total">8</div>
+          <div class="s-card-sub" id="ord-total-sub">Current dataset</div>
+        </div>
+        <div class="s-card">
+          <div class="s-card-label">Completed</div>
+          <div class="s-card-val" style="color:var(--green)" id="ord-completed">5</div>
+          <div class="s-card-sub" id="ord-completed-sub">62.5% completion rate</div>
+        </div>
+        <div class="s-card">
+          <div class="s-card-label">Pending</div>
+          <div class="s-card-val" style="color:var(--amber)" id="ord-pending">2</div>
+          <div class="s-card-sub" id="ord-pending-sub">25% of all orders</div>
+        </div>
+        <div class="s-card">
+          <div class="s-card-label">Refunded</div>
+          <div class="s-card-val" style="color:var(--red)" id="ord-refunded">1</div>
+          <div class="s-card-sub" id="ord-refunded-sub">12.5% refund rate</div>
+        </div>
+      </div>
+      <div class="s-table-wrap">
+        <div class="s-table-title">All Transactions</div>
+        <table>
+          <thead><tr><th>Product</th><th>Region</th><th>Amount</th><th>Status</th></tr></thead>
+          <tbody id="orders-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── Products Section ── -->
+    <div id="section-products" class="section-page">
+      <div class="section-heading">Products</div>
+      <div class="section-desc" id="prod-desc">Product performance, revenue ranking, and category breakdown.</div>
+      <div class="section-cards">
+        <div class="s-card">
+          <div class="s-card-label">Total Products</div>
+          <div class="s-card-val" id="prod-count">8</div>
+          <div class="s-card-sub" id="prod-count-sub">Across 5 categories</div>
+        </div>
+        <div class="s-card">
+          <div class="s-card-label">Top Seller</div>
+          <div class="s-card-val" id="prod-top" style="font-size:15px">ProMax Laptop</div>
+          <div class="s-card-sub" id="prod-top-sub">$182.4K in revenue</div>
+        </div>
+        <div class="s-card">
+          <div class="s-card-label">Avg Revenue/Product</div>
+          <div class="s-card-val" id="prod-avg">$93.1K</div>
+          <div class="s-card-sub" id="prod-avg-sub">Across all products</div>
+        </div>
+        <div class="s-card">
+          <div class="s-card-label">Top Category</div>
+          <div class="s-card-val" id="prod-top-cat" style="font-size:15px">Electronics</div>
+          <div class="s-card-sub" id="prod-top-cat-sub">72% revenue share</div>
+        </div>
+      </div>
+      <div class="s-table-wrap">
+        <div class="s-table-title">All Products by Revenue</div>
+        <table>
+          <thead><tr><th>Product</th><th>Category</th><th>Region</th><th>Revenue</th></tr></thead>
+          <tbody id="products-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── Customers Section ── -->
+    <div id="section-customers" class="section-page">
+      <div class="section-heading">Customers</div>
+      <div class="section-desc" id="cust-desc">Customer acquisition, retention, and lifetime value metrics.</div>
+      <div class="section-cards">
+        <div class="s-card">
+          <div class="s-card-label">Total Customers</div>
+          <div class="s-card-val" id="cust-total">5,842</div>
+          <div class="s-card-sub" id="cust-total-sub">Active this year</div>
+        </div>
+        <div class="s-card">
+          <div class="s-card-label">New Customers</div>
+          <div class="s-card-val" style="color:var(--green)" id="cust-new">1,204</div>
+          <div class="s-card-sub" id="cust-new-sub">+18.3% vs last year</div>
+        </div>
+        <div class="s-card">
+          <div class="s-card-label">Retention Rate</div>
+          <div class="s-card-val" id="cust-ret">79.4%</div>
+          <div class="s-card-sub">Returning customers</div>
+        </div>
+        <div class="s-card">
+          <div class="s-card-label">Avg LTV</div>
+          <div class="s-card-val" id="cust-ltv">$1,138</div>
+          <div class="s-card-sub">Lifetime value</div>
+        </div>
+      </div>
+      <div class="s-table-wrap">
+        <div class="s-table-title" id="cust-table-title">Customers by Region</div>
+        <table>
+          <thead><tr><th>Region</th><th>Customers</th><th>New</th><th>Retention</th></tr></thead>
+          <tbody id="cust-tbody">
+            <tr><td>North</td><td>1,870</td><td style="color:var(--green)">+412</td><td>81.2%</td></tr>
+            <tr><td>South</td><td>1,578</td><td style="color:var(--green)">+318</td><td>77.5%</td></tr>
+            <tr><td>East</td><td>1,286</td><td style="color:var(--green)">+280</td><td>80.1%</td></tr>
+            <tr><td>West</td><td>1,108</td><td style="color:var(--green)">+194</td><td>78.6%</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── Reports Section ── -->
+    <div id="section-reports" class="section-page">
+      <div class="section-heading">Reports</div>
+      <div class="section-desc">Download or export auto-generated performance reports.</div>
+      <div class="section-cards">
+        <div class="s-card">
+          <div class="s-card-label">Reports Available</div>
+          <div class="s-card-val">4</div>
+          <div class="s-card-sub">Ready to export</div>
+        </div>
+        <div class="s-card">
+          <div class="s-card-label">Last Export</div>
+          <div class="s-card-val" style="font-size:15px" id="last-export-time">—</div>
+          <div class="s-card-sub">Most recent download</div>
+        </div>
+        <div class="s-card">
+          <div class="s-card-label">Total Records</div>
+          <div class="s-card-val" id="rpt-records">8</div>
+          <div class="s-card-sub" id="rpt-records-sub">Transactions in dataset</div>
+        </div>
+        <div class="s-card">
+          <div class="s-card-label">Format</div>
+          <div class="s-card-val" style="font-size:15px">CSV</div>
+          <div class="s-card-sub">Excel-compatible</div>
+        </div>
+      </div>
+      <div class="s-table-wrap">
+        <div class="s-table-title">Available Reports</div>
+        <table>
+          <thead><tr><th>Report Name</th><th>Type</th><th>Period</th><th>Action</th></tr></thead>
+          <tbody id="reports-tbody">
+            <tr><td>Revenue Summary</td><td style="color:var(--text2)">Financial</td><td style="color:var(--text2)" class="rpt-period">FY 2024</td><td><span style="color:var(--accent);cursor:pointer;" onclick="exportCSV();document.getElementById('last-export-time').textContent=new Date().toLocaleTimeString()">Export CSV</span></td></tr>
+            <tr><td>Order Analysis</td><td style="color:var(--text2)">Operations</td><td style="color:var(--text2)" class="rpt-period">FY 2024</td><td><span style="color:var(--accent);cursor:pointer;" onclick="exportCSV();document.getElementById('last-export-time').textContent=new Date().toLocaleTimeString()">Export CSV</span></td></tr>
+            <tr><td>Product Performance</td><td style="color:var(--text2)">Analytics</td><td style="color:var(--text2)" class="rpt-period">FY 2024</td><td><span style="color:var(--accent);cursor:pointer;" onclick="exportCSV();document.getElementById('last-export-time').textContent=new Date().toLocaleTimeString()">Export CSV</span></td></tr>
+            <tr><td>Customer Insights</td><td style="color:var(--text2)">CRM</td><td style="color:var(--text2)" class="rpt-period">FY 2024</td><td><span style="color:var(--accent);cursor:pointer;" onclick="exportCSV();document.getElementById('last-export-time').textContent=new Date().toLocaleTimeString()">Export CSV</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div><!-- /main -->
+</div><!-- /layout -->
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ── Sample Data ── */
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+const PRODUCTS = [
+  {name:'ProMax Laptop',   sales:182400, region:'north', category:'electronics'},
+  {name:'AirBuds Pro',     sales:134700, region:'south', category:'electronics'},
+  {name:'SmartWatch X',    sales:118900, region:'east',  category:'electronics'},
+  {name:'UltraTab 12',     sales:97300,  region:'west',  category:'electronics'},
+  {name:'Foam Runner',     sales:76500,  region:'north', category:'apparel'},
+  {name:'EcoLamp',         sales:52100,  region:'south', category:'home'},
+  {name:'SportPack Pro',   sales:44800,  region:'east',  category:'sports'},
+  {name:'Glow Serum',      sales:38200,  region:'west',  category:'beauty'},
+];
+
+const TRANSACTIONS = [
+  {product:'ProMax Laptop', region:'North', amount:3200, status:'completed', category:'electronics'},
+  {product:'AirBuds Pro',   region:'South', amount:899,  status:'completed', category:'electronics'},
+  {product:'SmartWatch X',  region:'East',  amount:1240, status:'pending',   category:'electronics'},
+  {product:'UltraTab 12',   region:'West',  amount:780,  status:'refunded',  category:'electronics'},
+  {product:'Foam Runner',   region:'North', amount:340,  status:'completed', category:'apparel'},
+  {product:'EcoLamp',       region:'South', amount:220,  status:'pending',   category:'home'},
+  {product:'SportPack Pro', region:'East',  amount:580,  status:'completed', category:'sports'},
+  {product:'Glow Serum',    region:'West',  amount:160,  status:'completed', category:'beauty'},
+];
+
+const BASE_2024 = [52,61,74,68,82,95,88,104,112,96,120,138];
+const BASE_2023 = [40,48,55,60,70,80,75,88,92,85,100,110];
+
+const REGION_SCALE = {all:1, north:0.32, south:0.27, east:0.22, west:0.19};
+
+/* ── State ── */
+let activeRegion = 'all', activeYear = '2024', activeCat = 'all';
+let trendChart, catChart;
+let IMPORTED = false;
+
+/* ── Per-year imported data store: { '2024': [tx,...], '2025': [tx,...] } ── */
+let YEAR_DATA = {};
+
+/* ── Helpers ── */
+function fmtK(n){ return n>=1e6?'$'+(n/1e6).toFixed(2)+'M':n>=1000?'$'+(n/1000).toFixed(1)+'K':'$'+Math.round(n).toLocaleString(); }
+function fmtC(n){ return '$'+Math.round(n).toLocaleString(); }
+function filteredTx(){
+  // When imported, use per-year store filtered by active year
+  const pool = IMPORTED ? (YEAR_DATA[activeYear]||[]) : TRANSACTIONS;
+  return pool.filter(t=>{
+    if(activeRegion!=='all' && t.region.toLowerCase()!==activeRegion) return false;
+    if(activeCat!=='all' && t.category!==activeCat) return false;
+    return true;
+  });
+}
+function filteredProducts(){
+  // When imported, derive products dynamically from year-filtered transactions
+  if(IMPORTED){
+    const txs = filteredTx();
+    const map = {};
+    txs.forEach(t=>{
+      // Group by product name + category only — NOT region — so a product sold in
+      // multiple regions rolls up into a single bar showing its total revenue.
+      const k = t.product.toLowerCase()+'|'+t.category.toLowerCase();
+      if(!map[k]) map[k]={name:t.product, sales:0, region:'all', category:t.category.toLowerCase()};
+      map[k].sales += t.amount;
+    });
+    return Object.values(map);
+  }
+  return PRODUCTS.filter(p=>{
+    if(activeRegion!=='all' && p.region!==activeRegion) return false;
+    if(activeCat!=='all' && p.category!==activeCat) return false;
+    return true;
+  });
+}
+
+/* ── KPIs ── */
+function renderKPIs(){
+  const txs      = filteredTx();
+  const orders   = txs.length;
+  const txTotal  = txs.reduce((a,t)=>a+t.amount, 0);
+  const aov      = orders>0 ? Math.round(txTotal/orders) : 0;
+
+  // Total Revenue: when imported use filteredTx sum — single source of truth
+  //                 consistent with Revenue section table, KPI, and section cards
+  let totalRev;
+  if(IMPORTED){
+    totalRev = txTotal; // txTotal = filteredTx().reduce(amount) — computed above
+  } else {
+    const BASE_CUR = activeYear==='2024' ? BASE_2024 : BASE_2023;
+    const s = REGION_SCALE[activeRegion]||1;
+    totalRev = Math.round(BASE_CUR.reduce((a,b)=>a+b,0) * s * 1000);
+  }
+
+  const REGION_GROWTH_2024 = {all:14.2, north:16.1, south:12.4, east:14.8, west:-2.1};
+  const REGION_GROWTH_2023 = {all:9.8,  north:10.4, south:8.6,  east:9.2,  west:7.1};
+  let growth;
+  if(IMPORTED){
+    const prevYear = String(+activeYear - 1);
+    const prevPool = YEAR_DATA[prevYear]||[];
+    const curFiltered = filteredTx();
+    const curTotal = curFiltered.reduce((a,t)=>a+t.amount,0);
+    const prevFiltered = prevPool.filter(t=>{
+      if(activeRegion!=='all' && t.region.toLowerCase()!==activeRegion) return false;
+      if(activeCat!=='all' && t.category!==activeCat) return false;
+      return true;
+    });
+    const prevTotal = prevFiltered.reduce((a,t)=>a+t.amount,0);
+    growth = prevTotal>0 ? Math.round((curTotal-prevTotal)/prevTotal*1000)/10
+           : (activeYear==='2024' ? REGION_GROWTH_2024 : REGION_GROWTH_2023)[activeRegion]??14.2;
+  } else {
+    const growthMap = activeYear==='2024' ? REGION_GROWTH_2024 : REGION_GROWTH_2023;
+    growth = growthMap[activeRegion]??14.2;
+  }
+
+  // Dynamic deltas for Orders, AOV, Refund Rate
+  let ordersGrowthStr = '+9.3% YoY', ordersDir = 'up';
+  let aovGrowthStr    = '+4.1% YoY', aovDir    = 'up';
+
+  // Refund Rate — calculated from real data
+  const refundedCount = txs.filter(t=>t.status==='refunded').length;
+  const refundRate    = orders > 0 ? (refundedCount / orders * 100) : 0;
+  const refundVal     = refundRate.toFixed(1) + '%';
+  let refundStr = '', refundDir = 'down';
+  if(IMPORTED){
+    const prevYear2 = String(+activeYear - 1);
+    const prevPool3 = (YEAR_DATA[prevYear2]||[]).filter(t=>{
+      if(activeRegion!=='all' && t.region.toLowerCase()!==activeRegion) return false;
+      if(activeCat!=='all' && t.category!==activeCat) return false;
+      return true;
+    });
+    const prevOrders3 = prevPool3.length;
+    const prevAOV3    = prevOrders3>0 ? Math.round(prevPool3.reduce((a,t)=>a+t.amount,0)/prevOrders3) : 0;
+    if(prevOrders3>0){
+      const og = Math.round((orders-prevOrders3)/prevOrders3*1000)/10;
+      ordersGrowthStr = (og>=0?'+':'')+og+'% YoY';
+      ordersDir = og>=0 ? 'up' : 'down';
+    }
+    if(prevAOV3>0){
+      const ag = Math.round((aov-prevAOV3)/prevAOV3*1000)/10;
+      aovGrowthStr = (ag>=0?'+':'')+ag+'% YoY';
+      aovDir = ag>=0 ? 'up' : 'down';
+    }
+    // Refund rate YoY delta
+    const prevRefunded3 = prevPool3.filter(t=>t.status==='refunded').length;
+    const prevRefundRate = prevOrders3>0 ? (prevRefunded3/prevOrders3*100) : 0;
+    if(prevOrders3>0){
+      const rd = Math.round((refundRate-prevRefundRate)*10)/10;
+      refundStr = (rd>=0?'+':'')+rd+'% YoY';
+      refundDir = rd<=0 ? 'up' : 'down';
+    } else { refundStr = 'No prior data'; }
+  } else {
+    refundStr = '+0.3% YoY'; refundDir = 'down';
+  }
+
+  const kpis = [
+    {label:'Total Revenue', val:fmtK(totalRev), delta:(growth>=0?'+':'')+growth+'% YoY', dir:growth>=0?'up':'down',
+     color:'#4f8ef7', bg:'rgba(79,142,247,0.1)',
+     icon:'<rect x="1" y="5" width="3" height="8" rx="1"/><rect x="5.5" y="3" width="3" height="10" rx="1"/><rect x="10" y="1" width="3" height="12" rx="1"/>'},
+    {label:'Total Orders', val:orders.toLocaleString(), delta:ordersGrowthStr, dir:ordersDir,
+     color:'#22c984', bg:'rgba(34,201,132,0.1)',
+     icon:'<circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>'},
+    {label:'Avg Order Value', val:fmtC(aov), delta:aovGrowthStr, dir:aovDir,
+     color:'#2dd4bf', bg:'rgba(45,212,191,0.1)',
+     icon:'<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>'},
+    {label:'Refund Rate', val:refundVal, delta:refundStr, dir:refundDir,
+     color:'#f5a623', bg:'rgba(245,166,35,0.1)',
+     icon:'<polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.5"/>'},
+  ];
+
+  document.getElementById('kpiGrid').innerHTML = kpis.map(k=>`
+    <div class="kpi-card" style="--kpi-color:${k.color};--kpi-bg:${k.bg}">
+      <div class="kpi-icon">
+        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">${k.icon}</svg>
+      </div>
+      <div class="kpi-label">${k.label}</div>
+      <div class="kpi-value">${k.val}</div>
+      <div class="kpi-delta ${k.dir}">${k.dir==='up'?'▲':'▼'} ${k.delta}</div>
+    </div>`).join('');
+}
+
+/* ── Trend Chart ── */
+function getTrend(){
+  const s = REGION_SCALE[activeRegion]||1;
+  if(IMPORTED){
+    // Build monthly totals from the active year's transactions using the 'month' field (1-12)
+    const txs = filteredTx();
+    const monthly = Array(12).fill(0);
+    // Split: rows with a month field go to their bucket; rows without are spread evenly
+    const withMonth = txs.filter(t=>t.month!=null);
+    const noMonth   = txs.filter(t=>t.month==null);
+    withMonth.forEach(t=>{
+      const m = parseInt(t.month,10)-1;
+      const idx = (m>=0&&m<12) ? m : 0;
+      monthly[idx] += t.amount/1000;
+    });
+    if(noMonth.length){
+      const perMonth = noMonth.reduce((a,t)=>a+t.amount,0)/1000/12;
+      for(let i=0;i<12;i++) monthly[i]+=perMonth;
+    }
+    const cur = monthly.map(v=>+v.toFixed(1));
+    // Previous year comparison — use prior year data if it exists, else 88% estimate
+    const prevYear = String(+activeYear - 1);
+    const prevPool = YEAR_DATA[prevYear]||[];
+    const prevFiltered = prevPool.filter(t=>{
+      if(activeRegion!=='all' && t.region.toLowerCase()!==activeRegion) return false;
+      if(activeCat!=='all' && t.category!==activeCat) return false;
+      return true;
+    });
+    const prevMonthly = Array(12).fill(0);
+    if(prevFiltered.length){
+      const prevWith = prevFiltered.filter(t=>t.month!=null);
+      const prevNo   = prevFiltered.filter(t=>t.month==null);
+      prevWith.forEach(t=>{
+        const m = parseInt(t.month,10)-1;
+        const idx = (m>=0&&m<12) ? m : 0;
+        prevMonthly[idx] += t.amount/1000;
+      });
+      if(prevNo.length){
+        const perMonth = prevNo.reduce((a,t)=>a+t.amount,0)/1000/12;
+        for(let i=0;i<12;i++) prevMonthly[i]+=perMonth;
+      }
+    } else {
+      cur.forEach((v,i)=>{ prevMonthly[i] = +(v*0.88).toFixed(1); });
+    }
+    const prev = prevMonthly.map(v=>+v.toFixed(1));
+    const prevLabel = prevFiltered.length ? String(+activeYear-1) : String(+activeYear-1)+' (est.)';
+    return {y24:cur, y23:prev, prevLabel};
+  }
+  const cur  = (activeYear==='2024' ? BASE_2024 : BASE_2023).map(v=>+(v*s).toFixed(1));
+  // For FY2023, no FY2022 real data exists — use 88% estimate and surface that in the subtitle
+  const prev = (activeYear==='2024' ? BASE_2023 : BASE_2023.map(v=>+(v*0.88).toFixed(1))).map(v=>+(v*s).toFixed(1));
+  const prevLabel = activeYear==='2023' ? String(+activeYear-1)+' (est.)' : String(+activeYear-1);
+  return { y24: cur, y23: prev, prevLabel };
+}
+
+function initTrendChart(){
+  const {y24,y23,prevLabel} = getTrend();
+  const ctx = document.getElementById('trendChart').getContext('2d');
+  trendChart = new Chart(ctx, {
+    type:'line',
+    data:{
+      labels: MONTHS,
+      datasets:[
+        {label: activeYear, data:y24, borderColor:'#4f8ef7', backgroundColor:'rgba(79,142,247,0.08)',
+         pointBackgroundColor:'#4f8ef7', pointRadius:3, pointHoverRadius:5, tension:0.4, fill:true, borderWidth:2},
+        {label: prevLabel, data:y23, borderColor:'rgba(136,147,167,0.5)', backgroundColor:'transparent',
+         borderDash:[4,4], pointBackgroundColor:'rgba(136,147,167,0.5)',
+         pointRadius:2, tension:0.4, borderWidth:1.5},
+      ]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{
+        legend:{display:false},
+        tooltip:{
+          backgroundColor:'rgba(22,27,39,0.95)',
+          borderColor:'rgba(255,255,255,0.1)', borderWidth:1,
+          titleColor:'#f0f2f8', bodyColor:'#8b93a7',
+          callbacks:{label:c=>` $${c.parsed.y}K`}
+        }
+      },
+      scales:{
+        x:{grid:{color:'rgba(255,255,255,0.04)',drawBorder:false}, ticks:{color:'#555e72',font:{size:11}}},
+        y:{grid:{color:'rgba(255,255,255,0.04)',drawBorder:false}, ticks:{color:'#555e72',font:{size:11},callback:v=>'$'+v+'K'}}
+      }
+    }
+  });
+}
+
+function updateTrendChart(){
+  const {y24,y23,prevLabel} = getTrend();
+  trendChart.data.datasets[0].data  = y24;
+  trendChart.data.datasets[0].label = activeYear;
+  trendChart.data.datasets[1].data  = y23;
+  trendChart.data.datasets[1].label = prevLabel;
+  trendChart.update();
+  // Update HTML legend labels using stable IDs
+  const legCur = document.getElementById('trendLegCur');
+  const legPrev = document.getElementById('trendLegPrev');
+  if(legCur) legCur.textContent = activeYear;
+  if(legPrev) legPrev.textContent = prevLabel;
+}
+
+/* ── Category Chart ── */
+// Always shows full category share for the active year+region — category filter intentionally
+// excluded so the donut gives meaningful context even while drilling into one category.
+function getCatData(){
+  if(IMPORTED){
+    const pool = (YEAR_DATA[activeYear]||[]).filter(t=>{
+      if(activeRegion!=='all' && t.region.toLowerCase()!==activeRegion) return false;
+      return true;
+    });
+    const catSet = [...new Set(pool.map(t=>t.category.toLowerCase()))].sort();
+    const poolTotal = pool.reduce((a,t)=>a+t.amount,0);
+    const labels = catSet.map(c=>c.charAt(0).toUpperCase()+c.slice(1));
+    const vals   = catSet.map(c=>{
+      const s = pool.filter(t=>t.category===c).reduce((a,t)=>a+t.amount,0);
+      return poolTotal>0 ? Math.round(s/poolTotal*100) : 0;
+    });
+    const colors = catSet.map(c=>getCategoryColor(c));
+    return {labels, vals, colors};
+  } else {
+    const prods = PRODUCTS.filter(p=> activeRegion==='all' || p.region===activeRegion);
+    const catSet = [...new Set(prods.map(p=>p.category))].sort();
+    const prodTotal = prods.reduce((a,p)=>a+p.sales,0);
+    const labels = catSet.map(c=>c.charAt(0).toUpperCase()+c.slice(1));
+    const vals   = catSet.map(c=>{
+      const s = prods.filter(p=>p.category===c).reduce((a,p)=>a+p.sales,0);
+      return prodTotal>0 ? Math.round(s/prodTotal*100) : 0;
+    });
+    const colors = catSet.map(c=>getCategoryColor(c));
+    return {labels, vals, colors};
+  }
+}
+
+function initCatChart(){
+  const {labels, vals, colors} = getCatData();
+  const ctx2 = document.getElementById('catChart').getContext('2d');
+  catChart = new Chart(ctx2,{
+    type:'doughnut',
+    data:{labels, datasets:[{data:vals, backgroundColor:colors, borderWidth:0, hoverOffset:4}]},
+    options:{
+      responsive:true, maintainAspectRatio:false, cutout:'68%',
+      plugins:{
+        legend:{display:false},
+        tooltip:{
+          backgroundColor:'rgba(22,27,39,0.95)',
+          borderColor:'rgba(255,255,255,0.1)', borderWidth:1,
+          titleColor:'#f0f2f8', bodyColor:'#8b93a7',
+          callbacks:{label:c=>` ${c.label}: ${c.parsed}%`}
+        }
+      }
+    }
+  });
+  document.getElementById('catLegend').innerHTML = labels.map((c,i)=>
+    `<span class="leg"><span class="leg-dot" style="background:${colors[i]}"></span>${c} ${vals[i]}%</span>`
+  ).join('');
+}
+
+/* ── Shared category → color mapping (alphabetical, same palette as donut) ──
+   Both the donut and the product bars call this so the same category is always
+   the same color across both widgets.                                          */
+const CAT_COLOR_PALETTE = ['#4f8ef7','#22c984','#f5a623','#f55b5b','#7c5cfc','#2dd4bf','#ec4899','#a78bfa'];
+function getCategoryColor(cat){
+  const allCats = IMPORTED
+    ? [...new Set(Object.values(YEAR_DATA).flat().map(t=>t.category.toLowerCase()))].sort()
+    : [...new Set(PRODUCTS.map(p=>p.category))].sort();
+  const idx = allCats.indexOf(cat.toLowerCase());
+  return CAT_COLOR_PALETTE[(idx>=0?idx:0) % CAT_COLOR_PALETTE.length];
+}
+
+/* ── Products ── */
+function renderProducts(){
+  const prods = filteredProducts().sort((a,b)=>b.sales-a.sales).slice(0,6);
+  const max   = prods[0]?.sales||1;
+  document.getElementById('productBars').innerHTML = prods.length
+    ? prods.map((p)=>`
+        <div class="product-row">
+          <div class="product-meta">
+            <span class="product-name">${p.name}</span>
+            <span class="product-val">${fmtK(p.sales)}</span>
+          </div>
+          <div class="bar-bg">
+            <div class="bar-fill" style="width:${Math.round((p.sales/max)*100)}%;background:${getCategoryColor(p.category)};"></div>
+          </div>
+        </div>`).join('')
+    : '<p style="color:var(--text3);font-size:13px;">No products match current filters.</p>';
+}
+/* ── Transactions ── */
+function renderTx(){
+  const txs = filteredTx();
+  // Sort most recent first (by month desc if available, otherwise preserve import order)
+  const sorted = [...txs].sort((a,b)=>{
+    const ma = a.month ?? 0, mb = b.month ?? 0;
+    return mb - ma;
+  });
+  const countLabel = `${txs.length} record${txs.length!==1?'s':''}`;
+  document.getElementById('txCount').textContent = countLabel;
+  document.getElementById('txTable').innerHTML = sorted.length
+    ? sorted.map(t=>`
+    <tr>
+      <td>${t.product}</td>
+      <td style="color:var(--text2)">${t.region}</td>
+      <td style="font-family:var(--mono);font-size:13px;">${fmtC(t.amount)}</td>
+      <td><span class="badge badge-${t.status}">${t.status.charAt(0).toUpperCase()+t.status.slice(1)}</span></td>
+    </tr>`).join('')
+    : '<tr><td colspan="4" style="color:var(--text3);text-align:center;padding:1.5rem;">No transactions match current filters.</td></tr>';
+}
+
+/* ── Filters ── */
+function applyFilters(){
+  activeRegion = document.getElementById('regionFilter').value;
+  activeYear   = document.getElementById('yearFilter').value;
+  activeCat    = document.getElementById('catFilter').value;
+  document.getElementById('trendSubtitle').textContent = `FY ${activeYear} vs FY ${+activeYear-1}`;
+  // Always rebuild donut — region filter changes % even on static data
+  rebuildCatChart();
+  renderKPIs();
+  updateTrendChart();
+  renderProducts();
+  renderTx();
+  // Also refresh whichever section page is currently visible
+  updateSectionStats();
+  const activeSection = document.querySelector('.section-page.active');
+  if(activeSection){
+    const id = activeSection.id.replace('section-','');
+    populateSection(id);
+  }
+}
+
+/* ── File Import ── */
+function handleFile(input){
+  const file = input.files[0];
+  if(!file) return;
+  const name = file.name.toLowerCase();
+
+  if(name.endsWith('.csv')){
+    Papa.parse(file,{
+      header:true, skipEmptyLines:true,
+      complete(r){
+        input.value = '';
+        if(!r.data.length){ showToast('⚠️ CSV is empty'); return; }
+        processImportedData(r.data);
+        showToast(`✓ Imported ${r.data.length} rows from ${file.name}`);
+      },
+      error(){ input.value = ''; showToast('⚠️ Failed to parse CSV'); }
+    });
+  } else if(name.endsWith('.xlsx')||name.endsWith('.xls')){
+    const reader = new FileReader();
+    reader.onload = e => {
+      input.value = '';
+      try {
+        const wb = XLSX.read(new Uint8Array(e.target.result), {type:'array'});
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const data = XLSX.utils.sheet_to_json(ws, {defval:''});
+        if(!data.length){ showToast('⚠️ Sheet is empty'); return; }
+        processImportedData(data);
+        showToast(`✓ Imported ${data.length} rows from ${file.name}`);
+      } catch(err){ showToast('⚠️ Failed to read Excel file: '+err.message); }
+    };
+    reader.onerror = () => { input.value = ''; showToast('⚠️ Could not read file'); };
+    reader.readAsArrayBuffer(file);
+  } else {
+    input.value = '';
+    showToast('⚠️ Unsupported file type. Use CSV or Excel.');
+  }
+}
+
+/* Expected columns (case-insensitive): product/name, region, amount/sales, status, category, year/fy, month */
+function processImportedData(rows){
+  if(!rows || !rows.length){ showToast('No data rows found in file'); return; }
+
+  // Robustly detect column names from first row (fully case-insensitive, ignores spaces/underscores)
+  const allKeys = Object.keys(rows[0]);
+  const norm    = s => s.toString().toLowerCase().replace(/[\s_]/g,'');
+  const findCol = (...candidates) => allKeys.find(k => candidates.includes(norm(k))) || null;
+
+  const colProduct  = findCol('product','name','productname','item');
+  const colRegion   = findCol('region','area','zone');
+  const colAmount   = findCol('amount','sales','revenue','value','price');
+  const colStatus   = findCol('status','state');
+  const colCategory = findCol('category','cat','type');
+  const colYear     = findCol('year','fy','fiscalyear','fiscalyr');
+  const colMonth    = findCol('month','mon');
+  const colCustomer = findCol('customer','customername','customerid','client','buyer');
+
+
+  if(!colProduct || !colAmount){
+    showToast('\u26a0\ufe0f Cannot find Product/Amount columns. Check your file headers.');
+    return;
+  }
+
+  YEAR_DATA = {};
+
+  rows.forEach(row=>{
+    const product  = (row[colProduct]  ?? 'Unknown').toString().trim() || 'Unknown';
+    const region   = colRegion   ? (row[colRegion]   ?? 'North').toString().trim()         : 'North';
+    const amount   = parseFloat(((colAmount ? row[colAmount] : 0) ?? 0).toString().replace(/[^0-9.-]/g,'')) || 0;
+    const status   = colStatus   ? (row[colStatus]   ?? 'completed').toString().trim().toLowerCase() : 'completed';
+    const category = colCategory ? (row[colCategory] ?? 'general').toString().trim().toLowerCase()   : 'general';
+    const rawYear  = colYear     ? (row[colYear] ?? '2024').toString().replace(/[^0-9]/g,'') || '2024' : '2024';
+    const month    = colMonth && row[colMonth] != null && row[colMonth] !== '' ? parseInt(row[colMonth],10) : null;
+    const customer = colCustomer ? (row[colCustomer] ?? '').toString().trim() || null : null;
+
+    if(!YEAR_DATA[rawYear]) YEAR_DATA[rawYear] = [];
+    YEAR_DATA[rawYear].push({product, region, amount, status, category, month, customer});
+  });
+
+  // All transactions flattened (for dropdowns)
+  const allTx = Object.values(YEAR_DATA).flat();
+
+  // Pick the most recent year as the active year
+  const availableYears = Object.keys(YEAR_DATA).sort((a,b)=>+b - +a);
+  activeYear   = availableYears[0];
+  activeRegion = 'all';
+  activeCat    = 'all';
+
+  // Disable onchange handlers while rebuilding dropdowns to prevent
+  // applyFilters() firing mid-import with stale state
+  const yearSel   = document.getElementById('yearFilter');
+  const regionSel = document.getElementById('regionFilter');
+  const catSel    = document.getElementById('catFilter');
+  yearSel.onchange = null; regionSel.onchange = null; catSel.onchange = null;
+
+  yearSel.innerHTML = availableYears.map(y=>`<option value="${y}">FY ${y}</option>`).join('');
+  yearSel.value = activeYear;
+
+  const regions = [...new Set(allTx.map(t=>t.region.toLowerCase()))].sort();
+  regionSel.innerHTML = '<option value="all">All Regions</option>' +
+    regions.map(r=>`<option value="${r}">${r.charAt(0).toUpperCase()+r.slice(1)}</option>`).join('');
+  regionSel.value = 'all';
+
+  const cats = [...new Set(allTx.map(t=>t.category.toLowerCase()))].sort();
+  catSel.innerHTML = '<option value="all">All Categories</option>' +
+    cats.map(c=>`<option value="${c}">${c.charAt(0).toUpperCase()+c.slice(1)}</option>`).join('');
+  catSel.value = 'all';
+
+  // Re-enable onchange handlers
+  yearSel.onchange = regionSel.onchange = catSel.onchange = applyFilters;
+
+  // Now safe to set IMPORTED and render
+  IMPORTED = true;
+
+  // Update donut chart with real category %s for active year
+  rebuildCatChart();
+
+  // Update section page stat cards with real data
+  updateSectionStats();
+
+  document.getElementById('trendSubtitle').textContent = `FY ${activeYear} vs FY ${+activeYear-1}`;
+  renderKPIs(); updateTrendChart(); renderProducts(); renderTx();
+}
+
+/* ── Rebuild donut chart — always call this after any filter change ── */
+function rebuildCatChart(){
+  if(!catChart) return;
+  const {labels, vals, colors} = getCatData();
+  catChart.data.labels = labels;
+  catChart.data.datasets[0].data = vals;
+  catChart.data.datasets[0].backgroundColor = colors;
+  catChart.update();
+  document.getElementById('catLegend').innerHTML = labels.map((c,i)=>
+    `<span class="leg"><span class="leg-dot" style="background:${colors[i]}"></span>${c} ${vals[i]}%</span>`
+  ).join('');
+}
+
+function updateSectionStats(){
+  const REGION_GROWTH_2024 = {all:14.2, north:16.1, south:12.4, east:14.8, west:-2.1};
+  const REGION_GROWTH_2023 = {all:9.8,  north:10.4, south:8.6,  east:9.2,  west:7.1};
+  // tableGrowthMap declared here so it is always in scope (used by region table below)
+  const tableGrowthMap = activeYear==='2024' ? REGION_GROWTH_2024 : REGION_GROWTH_2023;
+  const prevYear  = String(+activeYear - 1);
+  const REGIONS = ['north','south','east','west'];
+
+  let grandTotal, regionRev = {}, total, growth;
+
+  if(IMPORTED){
+    // Single source of truth: everything derives from YEAR_DATA per year
+    const yearPool = YEAR_DATA[activeYear]||[];
+    grandTotal = yearPool.reduce((a,t)=>a+t.amount,0);
+    REGIONS.forEach(r=>{
+      regionRev[r] = yearPool.filter(t=>t.region.toLowerCase()===r).reduce((a,t)=>a+t.amount,0);
+    });
+    // total = filteredTx() sum — region+category filtered, matches KPI
+    const ftx = filteredTx();
+    total = ftx.reduce((a,t)=>a+t.amount,0);
+    // YoY: compare same filters against previous year
+    const prevPool = YEAR_DATA[prevYear]||[];
+    const prevFiltered2 = prevPool.filter(t=>{
+      if(activeRegion!=='all' && t.region.toLowerCase()!==activeRegion) return false;
+      if(activeCat!=='all' && t.category!==activeCat) return false;
+      return true;
+    });
+    const prevTotal2 = prevFiltered2.reduce((a,t)=>a+t.amount,0);
+    if(prevTotal2>0){
+      growth = Math.round((total - prevTotal2)/prevTotal2*1000)/10;
+    } else {
+      growth = tableGrowthMap[activeRegion] ?? 14.2;
+    }
+  } else {
+    const BASE_CUR = activeYear==='2024' ? BASE_2024 : BASE_2023;
+    const BASE_SUM = BASE_CUR.reduce((a,b)=>a+b,0);
+    grandTotal = Math.round(BASE_SUM * 1000);
+    REGIONS.forEach(r=>{ regionRev[r] = Math.round(BASE_SUM * REGION_SCALE[r] * 1000); });
+    total = Math.round(BASE_SUM * (REGION_SCALE[activeRegion]||1) * 1000);
+    growth = tableGrowthMap[activeRegion] ?? 14.2;
+  }
+
+  const regionLabel = activeRegion==='all' ? 'All Regions' : activeRegion.charAt(0).toUpperCase()+activeRegion.slice(1);
+
+  // Filtered transactions (region + category aware)
+  const txs       = filteredTx();
+  const n         = txs.length;
+  const completed = txs.filter(t=>t.status==='completed').length;
+  const pending   = txs.filter(t=>t.status==='pending').length;
+  const refunded  = txs.filter(t=>t.status==='refunded').length;
+
+  // Filtered products
+  const prods = filteredProducts();
+
+  // ── REVENUE SECTION ──────────────────────────────────────────────────
+  const setText = (id,v) => { const el=document.getElementById(id); if(el) el.textContent=v; };
+
+  setText('rev-desc', activeRegion==='all'
+    ? `Revenue breakdown across all regions for FY ${activeYear}.`
+    : `Revenue breakdown for ${regionLabel} region — FY ${activeYear}.`);
+
+  // Total Revenue card — matches KPI exactly
+  setText('rev-total', fmtK(total));
+  setText('rev-total-sub', activeRegion==='all' ? 'All regions combined' : `${regionLabel} region total`);
+
+  // Best Region card
+  if(activeRegion === 'all'){
+    // Find top region by revenue (using same regionRev object)
+    const topR = REGIONS.reduce((a,b)=>regionRev[a]>=regionRev[b]?a:b);
+    const topPct = grandTotal>0 ? Math.round(regionRev[topR]/grandTotal*100) : 0;
+    setText('rev-best-region', topR.charAt(0).toUpperCase()+topR.slice(1));
+    setText('rev-best-pct', topPct+'% of total revenue');
+  } else {
+    const regionShare = grandTotal>0 ? Math.round(regionRev[activeRegion]/grandTotal*100) : 0;
+    setText('rev-best-region', regionLabel);
+    setText('rev-best-pct', regionShare+'% of all-region total');
+  }
+
+  // YoY Growth card
+  const growthEl = document.getElementById('rev-growth');
+  if(growthEl){
+    growthEl.textContent = (growth>=0?'+':'')+growth+'%';
+    growthEl.style.color = growth>=0 ? 'var(--green)' : 'var(--red)';
+  }
+  setText('rev-growth-sub', `vs FY ${prevYear}`);
+
+  // Monthly Avg card
+  setText('rev-avg', fmtK(Math.round(total/12)));
+  setText('rev-avg-sub', `Per month FY ${activeYear}`);
+
+  // Revenue by Region table
+  const revTbody = document.getElementById('rev-region-tbody');
+  if(revTbody){
+    const displayRows = activeRegion==='all' ? REGIONS : [activeRegion];
+
+    // Source of truth: imported uses YEAR_DATA[activeYear]; static uses regionRev
+    const curPool  = IMPORTED ? (YEAR_DATA[activeYear]||[]) : null;
+    const prevPool2 = IMPORTED ? (YEAR_DATA[prevYear]||[]) : null;
+
+    const rowData = displayRows.map(r => {
+      let rTotal, rPrev;
+      if(IMPORTED){
+        rTotal = curPool.filter(t=>t.region.toLowerCase()===r).reduce((a,t)=>a+t.amount,0);
+        rPrev  = prevPool2.filter(t=>t.region.toLowerCase()===r).reduce((a,t)=>a+t.amount,0);
+      } else {
+        rTotal = regionRev[r]||0;
+        rPrev  = null; // use hardcoded growth map
+      }
+      return {r, rTotal, rPrev};
+    });
+
+    // Share = % of sum of displayed rows (always totals 100%)
+    const displayedTotal = rowData.reduce((a,d)=>a+d.rTotal, 0);
+
+    revTbody.innerHTML = rowData.map(({r, rTotal, rPrev}) => {
+      const pct = displayedTotal>0 ? Math.round(rTotal/displayedTotal*100) : 0;
+      let gStr;
+      if(IMPORTED){
+        if(rPrev>0){
+          const g2 = Math.round((rTotal-rPrev)/rPrev*1000)/10;
+          gStr = `<span style="color:${g2>=0?'var(--green)':'var(--red)'}">${g2>=0?'▲':'▼'} ${Math.abs(g2)}%</span>`;
+        } else {
+          gStr = '<span style="color:var(--text3)">—</span>';
+        }
+      } else {
+        const g2 = tableGrowthMap[r];
+        gStr = g2!=null
+          ? `<span style="color:${g2>=0?'var(--green)':'var(--red)'}">${g2>=0?'▲':'▼'} ${Math.abs(g2)}%</span>`
+          : '—';
+      }
+      return `<tr>
+        <td>${r.charAt(0).toUpperCase()+r.slice(1)}</td>
+        <td style="font-family:var(--mono)">${fmtK(rTotal)}</td>
+        <td style="color:var(--text2)">${pct}%</td>
+        <td>${gStr}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  // ── ORDERS SECTION ───────────────────────────────────────────────────
+  setText('ord-desc', `Order volume and status breakdown — ${regionLabel}, FY ${activeYear}.`);
+  setText('ord-total', n);
+  setText('ord-total-sub', activeRegion==='all' ? 'All regions' : regionLabel+' region');
+  setText('ord-completed', completed);
+  setText('ord-completed-sub', n>0 ? (completed/n*100).toFixed(1)+'% completion rate' : '—');
+  setText('ord-pending', pending);
+  setText('ord-pending-sub', n>0 ? (pending/n*100).toFixed(1)+'% of all orders' : '—');
+  setText('ord-refunded', refunded);
+  setText('ord-refunded-sub', n>0 ? (refunded/n*100).toFixed(1)+'% refund rate' : '—');
+
+  // ── PRODUCTS SECTION ─────────────────────────────────────────────────
+  setText('prod-desc', `Product performance for ${regionLabel} — FY ${activeYear}.`);
+  const sortedProds = [...prods].sort((a,b)=>b.sales-a.sales);
+  const topProd     = sortedProds[0];
+  const avgRev      = prods.length>0 ? Math.round(prods.reduce((a,p)=>a+p.sales,0)/prods.length) : 0;
+  const cats2       = [...new Set(prods.map(p=>p.category))];
+  const topCat      = cats2.sort((a,b)=>{
+    const sa = prods.filter(p=>p.category===a).reduce((x,p)=>x+p.sales,0);
+    const sb = prods.filter(p=>p.category===b).reduce((x,p)=>x+p.sales,0);
+    return sb-sa;
+  })[0];
+  const catTotal    = prods.reduce((a,p)=>a+p.sales,0);
+  const topCatSales = topCat ? prods.filter(p=>p.category===topCat).reduce((a,p)=>a+p.sales,0) : 0;
+  const topCatPct   = catTotal>0 ? Math.round(topCatSales/catTotal*100) : 0;
+
+  const cats3 = [...new Set(prods.map(p=>p.category))];
+  setText('prod-count', prods.length);
+  setText('prod-count-sub', prods.length>0
+    ? `Across ${cats3.length} categor${cats3.length===1?'y':'ies'}`
+    : 'No products in current filter');
+  if(document.getElementById('prod-top')) document.getElementById('prod-top').textContent = topProd ? topProd.name : '—';
+  setText('prod-top-sub', topProd ? fmtK(topProd.sales)+' in revenue' : '—');
+  setText('prod-avg', avgRev>0 ? fmtK(avgRev) : '—');
+  setText('prod-avg-sub', 'Avg per product in filter');
+  if(document.getElementById('prod-top-cat')) document.getElementById('prod-top-cat').textContent = topCat ? topCat.charAt(0).toUpperCase()+topCat.slice(1) : '—';
+  setText('prod-top-cat-sub', topCat ? topCatPct+'% revenue share' : '—');
+
+  // ── CUSTOMERS SECTION ────────────────────────────────────────────────
+  setText('cust-desc', `Customer acquisition, retention, and LTV — ${regionLabel}, FY ${activeYear}.`);
+
+  if(IMPORTED){
+    // Derive all customer metrics from real transaction data.
+    // Each unique product name is treated as a proxy for a unique customer order;
+    // unique customers = unique products bought in the active year (per region filter).
+    const curPool  = filteredTx();                                        // active year + filters
+    const prevPool = (YEAR_DATA[prevYear]||[]).filter(t=>{
+      if(activeRegion!=='all' && t.region.toLowerCase()!==activeRegion) return false;
+      if(activeCat!=='all' && t.category!==activeCat) return false;
+      return true;
+    });
+
+    // Use real customer names if the column exists, otherwise fall back to product name as proxy
+    const custKey = t => (t.customer && t.customer.length > 0) ? t.customer.toLowerCase() : t.product.toLowerCase();
+
+    const curCustomers  = new Set(curPool.map(custKey));
+    const prevCustomers = new Set(prevPool.map(custKey));
+
+    const totalCust = curCustomers.size;
+
+    // New customers: products appearing this year but NOT in the previous year
+    const newCustSet = [...curCustomers].filter(p=>!prevCustomers.has(p));
+    const newCust    = newCustSet.length;
+    const newCustPct = prevCustomers.size > 0
+      ? (newCust >= 0 ? '+' : '') + (((newCust - (prevCustomers.size - [...prevCustomers].filter(p=>curCustomers.has(p)).length)) / Math.max(prevCustomers.size,1))*100).toFixed(1) + '% YoY'
+      : newCust > 0 ? 'New this year' : '—';
+
+    // Retention: customers from prev year who also appear this year
+    const retainedCount  = [...prevCustomers].filter(p=>curCustomers.has(p)).length;
+    const retentionRate  = prevCustomers.size > 0
+      ? (retainedCount / prevCustomers.size * 100).toFixed(1) + '%'
+      : totalCust > 0 ? '100.0%' : '—';
+
+    // LTV: total revenue ÷ unique customers for the active year
+    const curRevenue = curPool.reduce((a,t)=>a+t.amount,0);
+    const ltvVal     = totalCust > 0 ? Math.round(curRevenue / totalCust) : 0;
+    const ltvStr     = ltvVal > 0 ? fmtC(ltvVal) : '—';
+
+    const hasRealCustomers = curPool.some(t => t.customer && t.customer.length > 0);
+    setText('cust-total', totalCust.toLocaleString());
+    setText('cust-total-sub', hasRealCustomers ? `Unique customers — FY ${activeYear}` : `Unique products sold — FY ${activeYear}`);
+    setText('cust-new', newCust.toLocaleString());
+    setText('cust-new-sub', prevPool.length > 0 ? newCustPct+' vs last year' : 'No prior year data');
+    setText('cust-ret', retentionRate);
+    setText('cust-ltv', ltvStr);
+
+    // Customer table — break down by every region found in data
+    const custTbody = document.getElementById('cust-tbody');
+    if(custTbody){
+      const allRegions = [...new Set((YEAR_DATA[activeYear]||[]).map(t=>t.region.toLowerCase()))].sort();
+      const visRegions = activeRegion==='all' ? allRegions : allRegions.filter(r=>r===activeRegion);
+      const yearPool2  = YEAR_DATA[activeYear]||[];
+      const prevYearPool = YEAR_DATA[prevYear]||[];
+
+      custTbody.innerHTML = visRegions.map(r=>{
+        const rCur   = yearPool2.filter(t=>t.region.toLowerCase()===r);
+        const rPrev  = prevYearPool.filter(t=>t.region.toLowerCase()===r);
+        const ck = t => (t.customer && t.customer.length > 0) ? t.customer.toLowerCase() : t.product.toLowerCase();
+        const rCustC = new Set(rCur.map(ck));
+        const rCustP = new Set(rPrev.map(ck));
+        const rTotal = rCustC.size;
+        const rNew   = [...rCustC].filter(p=>!rCustP.has(p)).length;
+        const rRet   = rCustP.size > 0
+          ? ([...rCustP].filter(p=>rCustC.has(p)).length / rCustP.size * 100).toFixed(1)+'%'
+          : rTotal > 0 ? '100.0%' : '—';
+        return `<tr>
+          <td>${r.charAt(0).toUpperCase()+r.slice(1)}</td>
+          <td>${rTotal.toLocaleString()}</td>
+          <td style="color:var(--green)">+${rNew}</td>
+          <td>${rRet}</td>
+        </tr>`;
+      }).join('') || '<tr><td colspan="4" style="color:var(--text3);text-align:center;padding:1rem;">No data for current filters.</td></tr>';
+    }
+  } else {
+    // Demo data fallback — static estimates
+    const CUST_BASE = {all:{total:5842,new_c:1204,ret:'79.4%',ltv:1138},
+                       north:{total:1870,new_c:412,ret:'81.2%',ltv:1200},
+                       south:{total:1578,new_c:318,ret:'77.5%',ltv:1090},
+                       east:{total:1286,new_c:280,ret:'80.1%',ltv:1150},
+                       west:{total:1108,new_c:194,ret:'78.6%',ltv:1060}};
+    const cb = CUST_BASE[activeRegion] || CUST_BASE.all;
+    const prevNewC = Math.round(cb.new_c / 1.15);
+    const newPct = prevNewC>0 ? '+'+(((cb.new_c-prevNewC)/prevNewC)*100).toFixed(1)+'% YoY' : '';
+    setText('cust-total', cb.total.toLocaleString());
+    setText('cust-total-sub', `Active in FY ${activeYear}`);
+    setText('cust-new', cb.new_c.toLocaleString());
+    setText('cust-new-sub', newPct+' vs last year');
+    setText('cust-ret', cb.ret);
+    setText('cust-ltv', '$'+cb.ltv.toLocaleString());
+
+    const custTbody = document.getElementById('cust-tbody');
+    if(custTbody){
+      const CUST_ROWS = [
+        {r:'north',total:1870,new_c:412,ret:'81.2%'},
+        {r:'south',total:1578,new_c:318,ret:'77.5%'},
+        {r:'east', total:1286,new_c:280,ret:'80.1%'},
+        {r:'west', total:1108,new_c:194,ret:'78.6%'},
+      ];
+      const visRows = activeRegion==='all' ? CUST_ROWS : CUST_ROWS.filter(rw=>rw.r===activeRegion);
+      custTbody.innerHTML = visRows.map(rw=>`<tr>
+        <td>${rw.r.charAt(0).toUpperCase()+rw.r.slice(1)}</td>
+        <td>${rw.total.toLocaleString()}</td>
+        <td style="color:var(--green)">+${rw.new_c}</td>
+        <td>${rw.ret}</td>
+      </tr>`).join('');
+    }
+  }
+
+  const custTitle = document.getElementById('cust-table-title');
+  if(custTitle) custTitle.textContent = activeRegion==='all' ? 'Customers by Region' : `${regionLabel} Customer Details`;
+
+  // ── REPORTS SECTION ──────────────────────────────────────────────────
+  const rptRecords = filteredTx().length || TRANSACTIONS.length;
+  setText('rpt-records', rptRecords);
+  setText('rpt-records-sub', `${activeRegion==='all'?'All regions':regionLabel} — FY ${activeYear}`);
+  document.querySelectorAll('.rpt-period').forEach(el => el.textContent = `FY ${activeYear}`);
+}
+
+/* ── Export CSV ── */
+function exportCSV(){
+  // If imported: export ALL years so re-importing gives back the full dataset.
+  // If still on sample data: export the current filtered view.
+  let allRows, filename;
+  if(IMPORTED && Object.keys(YEAR_DATA).length){
+    // Flatten all years, preserving year on each row
+    allRows = [];
+    Object.keys(YEAR_DATA).sort().forEach(yr=>{
+      YEAR_DATA[yr].forEach(t=> allRows.push({...t, year: yr}));
+    });
+    filename = 'sales_import_all.csv';
+  } else {
+    const txs = filteredTx();
+    allRows = txs.map(t=>({...t, year: activeYear}));
+    filename = `sales_data_FY${activeYear}.csv`;
+  }
+  const header = ['Product','Region','Amount','Status','Category','Year','Month'];
+  const rows   = allRows.map(t=>[
+    t.product, t.region, t.amount, t.status, t.category,
+    t.year ?? activeYear,
+    t.month ?? ''
+  ]);
+  const csv    = [header,...rows].map(r=>r.map(v=>
+    typeof v==='string' && v.includes(',') ? `"${v}"` : v
+  ).join(',')).join('\n');
+  const blob   = new Blob([csv],{type:'text/csv'});
+  const url    = URL.createObjectURL(blob);
+  const a      = document.createElement('a');
+  a.href=url; a.download=filename; a.click();
+  URL.revokeObjectURL(url);
+  showToast(`✓ Exported ${allRows.length} rows → ${filename}`);
+}
+
+/* ── Toast ── */
+function showToast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 3500);
+}
+
+/* ── Navigation ── */
+function showSection(id, el){
+  // Update nav highlight
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  el.classList.add('active');
+
+  const dashboard = document.querySelector('.content');
+  const sections  = document.querySelectorAll('.section-page');
+  const titles    = {dashboard:'Dashboard Overview', revenue:'Revenue', orders:'Orders', products:'Products', customers:'Customers', reports:'Reports'};
+
+  document.querySelector('.topbar-title').textContent = titles[id] || 'Dashboard Overview';
+
+  if(id === 'dashboard'){
+    dashboard.style.display = '';
+    sections.forEach(s => s.classList.remove('active'));
+  } else {
+    dashboard.style.display = 'none';
+    sections.forEach(s => s.classList.remove('active'));
+    const target = document.getElementById('section-' + id);
+    if(target){ target.classList.add('active'); populateSection(id); }
+  }
+}
+
+function populateSection(id){
+  if(id === 'revenue'){
+    // Revenue section: updateSectionStats handles all cards & table
+    updateSectionStats();
+  }
+  if(id === 'orders'){
+    const txs = filteredTx();
+    document.getElementById('orders-tbody').innerHTML = txs.length
+      ? txs.map(t=>`
+          <tr>
+            <td>${t.product}</td>
+            <td style="color:var(--text2)">${t.region}</td>
+            <td style="font-family:var(--mono);font-size:13px;">${fmtC(t.amount)}</td>
+            <td><span class="badge badge-${t.status}">${t.status.charAt(0).toUpperCase()+t.status.slice(1)}</span></td>
+          </tr>`).join('')
+      : '<tr><td colspan="4" style="color:var(--text3);text-align:center;padding:1.5rem;">No orders match current filters.</td></tr>';
+  }
+  if(id === 'products'){
+    const prods = filteredProducts();
+    document.getElementById('products-tbody').innerHTML = prods.length
+      ? [...prods].sort((a,b)=>b.sales-a.sales).map(p=>`
+          <tr>
+            <td>${p.name}</td>
+            <td style="color:var(--text2)">${p.category.charAt(0).toUpperCase()+p.category.slice(1)}</td>
+            <td style="color:var(--text2)">${p.region.charAt(0).toUpperCase()+p.region.slice(1)}</td>
+            <td style="font-family:var(--mono);font-size:13px;">${fmtK(p.sales)}</td>
+          </tr>`).join('')
+      : '<tr><td colspan="4" style="color:var(--text3);text-align:center;padding:1.5rem;">No products match current filters.</td></tr>';
+  }
+}
+
+/* ── Init ── */
+renderKPIs();
+initTrendChart();
+initCatChart();
+renderProducts();
+renderTx();
+updateSectionStats();
+</script>
+</body>
+</html>
